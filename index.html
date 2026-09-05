@@ -1,175 +1,157 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Паук — пасьянс | SANI GROUP</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%95%B7%EF%B8%8F%3C/text%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ДОМИНО от SANI GROUP</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="table-room">
+    <audio id="bgMusic" loop src="bg-music.mp3"></audio>
+    <canvas id="fxCanvas"></canvas>
 
-  <!-- ======= HEADER ======= -->
-  <header class="topbar">
-    <div class="brand">
-      <span class="brand-web" aria-hidden="true"></span>
-      <h1 class="brand-title">Паук</h1>
+    <div id="menuScreen" class="container-box">
+        <h1>ДОМИНО от SANI GROUP</h1>
+        <div class="creator-tag" onclick="openAboutModal()">ИНФОРМАЦИЯ О СТУДИИ ℹ️</div>
+        
+        <button class="menu-btn" onclick="startGame('bot')">🤖 ИГРАТЬ С БОТОМ</button>
+        <button class="menu-btn" onclick="createOnlineRoom()">✨ СОЗДАТЬ СТОЛ (ONLINE)</button>
+        
+        <div class="input-group">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" id="roomCodeInput" class="code-input" placeholder="ВВЕДИТЕ 4 ЦИФРЫ КОДА" maxlength="4">
+            <button class="menu-btn secondary" onclick="joinOnlineRoom()">🔌 ПОДКЛЮЧИТЬСЯ К СТОЛУ</button>
+        </div>
+
+        <button class="menu-btn secondary" style="margin-top: 20px;" onclick="toggleRules()">📜 ПРАВИЛА ИГРЫ</button>
+        
+        <div id="rulesPanel" class="rules-panel">
+            <h3 style="margin-top:0; color:var(--accent-gold);">Правила игры («Козёл»):</h3>
+            • Каждому игроку раздается по 7 костяшек.<br>
+            • Ходы делаются по очереди. Нужно состыковать цифру кости с одним из краев змейки на поле.<br>
+            • <b>Базар:</b> Если ходить нечем, вы обязаны тянуть кости из базара, пока не найдете нужную.<br>
+            • <b>Пас:</b> Если базар пуст, а ходить нечем, нажимайте кнопку «ПАС».<br>
+            • <b>Рыба:</b> Блокировка поля, когда ходить не может никто. Побеждает тот, у кого меньше очков в руке.
+        </div>
     </div>
 
-    <nav class="topbar-actions">
-      <button class="btn btn-ghost" id="btn-undo" title="Отменить ход" disabled>
-        <svg viewBox="0 0 24 24" class="icon"><path d="M9 14l-5-5 5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-2"/></svg>
-        <span class="btn-label">Отменить</span>
-      </button>
-      <button class="btn btn-ghost" id="btn-rules" title="Правила игры">
-        <svg viewBox="0 0 24 24" class="icon"><circle cx="12" cy="12" r="9"/><path d="M12 17v.01M12 14c0-2.5 2.5-2 2.5-4.5A2.5 2.5 0 0 0 12 7a2.5 2.5 0 0 0-2.5 2.5"/></svg>
-        <span class="btn-label">Правила</span>
-      </button>
-      <button class="btn btn-gold" id="btn-new-game" title="Новая игра">
-        <svg viewBox="0 0 24 24" class="icon"><path d="M4 4v6h6M20 20v-6h-6"/><path d="M20 9a8 8 0 0 0-14.6-3.2M4 15a8 8 0 0 0 14.6 3.2"/></svg>
-        <span class="btn-label">Новая игра</span>
-      </button>
-    </nav>
-
-    <div class="credit">
-      <span class="credit-by">разработано</span>
-      <span class="credit-name">SANI&nbsp;GROUP</span>
-    </div>
-  </header>
-
-  <!-- ======= STATUS BAR ======= -->
-  <section class="statusbar" aria-label="Статистика партии">
-    <div class="stat">
-      <span class="stat-label">Сложность</span>
-      <span class="stat-value" id="stat-difficulty">1 масть</span>
-    </div>
-    <div class="stat">
-      <span class="stat-label">Раздачи колоды</span>
-      <span class="stat-value" id="stat-stock">5</span>
-    </div>
-    <div class="stat">
-      <span class="stat-label">Собрано</span>
-      <span class="stat-value" id="stat-sequences">0<i>/8</i></span>
-    </div>
-    <div class="stat">
-      <span class="stat-label">Ходы</span>
-      <span class="stat-value" id="stat-moves">0</span>
-    </div>
-    <div class="stat">
-      <span class="stat-label">Время</span>
-      <span class="stat-value" id="stat-time">00:00</span>
-    </div>
-  </section>
-
-  <!-- ======= BOARD ======= -->
-  <main class="board-wrap">
-    <div class="board">
-      <div class="tableau" id="tableau">
-        <!-- 10 columns injected by JS -->
-      </div>
-
-      <div class="stockdock" id="stock-pile" title="Раздать карты из колоды">
-        <div class="stock-cards" id="stock-visual"></div>
-        <div class="stock-caption">Колода</div>
-      </div>
-    </div>
-  </main>
-
-  <div class="table-footer">
-    <span>© <span id="year"></span> SANI GROUP — карточные игры нового уровня</span>
-  </div>
-</div>
-
-<!-- drag ghost layer -->
-<div id="drag-layer"></div>
-
-<!-- ======= MODAL: New Game ======= -->
-<div class="modal-overlay" id="modal-newgame" hidden>
-  <div class="modal">
-    <h2>Новая партия</h2>
-    <p class="modal-sub">Выберите количество мастей — от этого зависит сложность пасьянса.</p>
-
-    <div class="suit-options" id="suit-options">
-      <button class="suit-card" data-suits="1">
-        <span class="suit-card-glyphs">♠</span>
-        <span class="suit-card-name">1 масть</span>
-        <span class="suit-card-desc">Лёгкий уровень</span>
-      </button>
-      <button class="suit-card" data-suits="2">
-        <span class="suit-card-glyphs"><i class="black">♠</i><i class="red">♥</i></span>
-        <span class="suit-card-name">2 масти</span>
-        <span class="suit-card-desc">Средний уровень</span>
-      </button>
-      <button class="suit-card" data-suits="4">
-        <span class="suit-card-glyphs"><i class="black">♠</i><i class="red">♥</i><i class="red">♦</i><i class="black">♣</i></span>
-        <span class="suit-card-name">4 масти</span>
-        <span class="suit-card-desc">Классический сложный</span>
-      </button>
+    <div id="waitingScreen" class="container-box" style="display: none;">
+        <h1>СТОЛ СОЗДАН</h1>
+        <div class="creator-tag">by SANI GROUP</div>
+        <p style="color: #a1a1aa; margin-bottom: 5px;">Передайте этот цифровой код другу:</p>
+        
+        <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin: 15px 0;">
+            <div id="generatedCode" class="room-code-display" style="margin:0;">----</div>
+            <button onclick="copyRoomCode()" style="background: #27272a; border: 1px solid #eab308; color: #fef08a; padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px;">📋 СКОПИРОВАТЬ</button>
+        </div>
+        
+        <p style="color: #fde047; font-size: 14px; font-weight: bold;">Ожидание подключения соперника...</p>
+        <button class="menu-btn secondary" onclick="backToMenu()">ОТМЕНА</button>
     </div>
 
-    <div class="modal-actions">
-      <button class="btn btn-plain" id="btn-cancel-newgame">Отмена</button>
+    <div id="gameScreen" class="game-wrapper">
+        <div class="vs-panel">
+            <div class="player-card">
+                <div class="player-avatar">👑</div>
+                <div class="player-name" id="p1Name">ВЫ</div>
+            </div>
+            <div id="bazarCounter" style="color: #eab308; font-weight: bold; font-size: 14px; background: rgba(0,0,0,0.4); padding: 4px 10px; border-radius: 8px;">БАЗАР: 14</div>
+            <div class="player-card">
+                <div class="player-avatar">👑</div>
+                <div class="player-name" id="p2Name">СОПЕРНИК</div>
+            </div>
+        </div>
+
+        <div id="statusUpdate" style="margin-bottom: 10px; font-weight: bold; color: #fde047; font-size: 14px;"></div>
+
+        <div class="board-container">
+            <canvas id="boardCanvas" width="400" height="400"></canvas>
+        </div>
+
+        <div id="dominoActions" style="display: flex; gap: 10px; width: 100%; margin-top: 10px;">
+            <button class="menu-btn" style="margin:0; padding:10px;" onclick="takeFromBazar()">🎰 ВЗЯТЬ ИЗ БАЗАРА</button>
+            <button class="menu-btn secondary" style="margin:0; padding:10px;" onclick="passTurn()">🏳️ ПАС</button>
+        </div>
+
+        <div class="chat-box" id="chatBox">
+            <div class="chat-messages" id="chatMessages"></div>
+            <div class="emoji-bar">
+                <button class="emoji-btn" onclick="sendQuickEmoji('👍')">👍</button>
+                <button class="emoji-btn" onclick="sendQuickEmoji('🔥')">🔥</button>
+                <button class="emoji-btn" onclick="sendQuickEmoji('😂')">😂</button>
+                <button class="emoji-btn" onclick="sendQuickEmoji('🤝')">🤝</button>
+                <button class="emoji-btn" onclick="sendQuickEmoji('🐟')">🐟</button>
+                <button class="emoji-btn" onclick="sendQuickEmoji('😎')">😎</button>
+            </div>
+            <div class="chat-input-row">
+                <input type="text" id="chatInput" placeholder="Сообщение...">
+                <button onclick="sendChatMessage()">ОТПРАВИТЬ</button>
+            </div>
+        </div>
+
+        <div class="controls-row">
+            <button class="ui-btn" onclick="backToMenu()" title="В меню">☰</button>
+            <button class="ui-btn" id="musicToggleBtn" onclick="toggleMusic()" title="Вкл/Выкл Музыку">🎵</button>
+            <button class="ui-btn" onclick="toggleChat()" title="Чат">💬</button>
+        </div>
     </div>
-  </div>
-</div>
 
-<!-- ======= MODAL: Rules ======= -->
-<div class="modal-overlay" id="modal-rules" hidden>
-  <div class="modal modal-rules">
-    <h2>Правила пасьянса «Паук»</h2>
-
-    <div class="rules-body">
-      <h3>Цель игры</h3>
-      <p>Собрать все карты в 8 полных последовательностей одной масти — от короля до туза — и убрать их с поля.</p>
-
-      <h3>Поле</h3>
-      <p>Игра ведётся двумя колодами — 104 картами. 10 рабочих столбцов: в первых четырёх по 6 карт, в остальных шести по 5 карт. Верхняя карта каждого столбца открыта, под ней карты закрыты рубашкой вверх. Оставшиеся 50 карт лежат в резервной колоде пятью порциями по 10 карт.</p>
-
-      <h3>Ходы</h3>
-      <ul>
-        <li>Открытую карту можно переложить на другую, если её достоинство ровно на единицу меньше — масть значения не имеет.</li>
-        <li>Несколько карт переносятся вместе одним ходом, только если они уже выстроены по убыванию и принадлежат одной масти.</li>
-        <li>На пустой столбец можно положить любую карту или готовую одномастную последовательность.</li>
-        <li>Когда карта открывается — переворачивайте её и продолжайте собирать ряды.</li>
-      </ul>
-
-      <h3>Колода</h3>
-      <p>Нажмите на колоду, чтобы раздать по одной новой карте на каждый из 10 столбцов. Раздача невозможна, пока на поле остаётся хотя бы один пустой столбец — сначала заполните все пустоты.</p>
-
-      <h3>Завершение ряда</h3>
-      <p>Как только в столбце соберётся полная последовательность от короля до туза одной масти, она автоматически убирается с поля, а счётчик собранных рядов увеличивается.</p>
-
-      <h3>Победа и поражение</h3>
-      <p>Победа — когда собраны все 8 последовательностей. Поражение — когда колода пуста и на поле не осталось ни одного возможного хода.</p>
+    <div id="gameOverScreen" class="modal-screen">
+        <div class="container-box" style="background: #1c1917;">
+            <div id="resultTitle" class="result-title">КОНЕЦ ИГРЫ</div>
+            <p id="resultText" style="color: #a8a29e; margin-bottom: 25px;">Партия завершена</p>
+            <p id="resultReason" style="color: #eab308; font-weight: bold; margin-bottom: 20px;"></p>
+            <button class="menu-btn" id="rematchBtn" onclick="requestRematch()">🔄 НОВАЯ ИГРА</button>
+            <button class="menu-btn secondary" onclick="backToMenu()">🚪 ВЫЙТИ В МЕНЮ</button>
+        </div>
     </div>
 
-    <div class="modal-actions">
-      <button class="btn btn-gold" id="btn-close-rules">Понятно</button>
+    <div id="aboutModal" class="about-modal">
+        <div class="about-card">
+            <button class="about-close" onclick="closeAboutModal()">✕</button>
+            <div class="suits">♠ ♥ ♦ ♣</div>
+            <div class="about-title">SANI GROUP</div>
+            <div class="about-subtitle">Команда основателей и разработчиков</div>
+            <div class="about-desc">
+                Мы создали эту интерактивную версию культовой настольной игры ДОМИНО, чтобы вы могли с максимальным комфортом играть по сети с друзьями по всему миру или тренироваться в битвах с умными ботами.
+            </div>
+            <div class="features-row">
+                <div class="feature-badge">⚡ Стабильный сокет</div>
+                <div class="feature-badge">🎨 Стильный дизайн</div>
+                <div class="feature-badge">⚙️ Честные правила</div>
+            </div>
+            <div class="copyright">© SANI GROUP Studio. Все права защищены.</div>
+        </div>
     </div>
-    <div class="modal-credit">Игра разработана <b>SANI GROUP</b></div>
-  </div>
-</div>
 
-<!-- ======= MODAL: Win / Lose ======= -->
-<div class="modal-overlay" id="modal-end" hidden>
-  <div class="modal modal-end">
-    <div class="end-icon" id="end-icon">🕷️</div>
-    <h2 id="end-title">Победа!</h2>
-    <p id="end-sub">Все восемь последовательностей собраны.</p>
-    <div class="end-stats">
-      <div><span id="end-moves">0</span><small>ходов</small></div>
-      <div><span id="end-time">00:00</span><small>время</small></div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-gold" id="btn-play-again">Играть снова</button>
-    </div>
-  </div>
-</div>
-
-<script src="client.js"></script>
+    <script src="client.js"></script>
+    <script>
+        function toggleRules() {
+            const panel = document.getElementById('rulesPanel');
+            panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+        }
+        function createOnlineRoom() {
+            document.getElementById('menuScreen').style.display = 'none';
+            document.getElementById('waitingScreen').style.display = 'block';
+            ws.send(JSON.stringify({ type: 'CREATE_ROOM' }));
+        }
+        function joinOnlineRoom() {
+            const code = document.getElementById('roomCodeInput').value.trim();
+            if(code.length !== 4) { alert('Введите 4 цифры кода стола!'); return; }
+            ws.send(JSON.stringify({ type: 'JOIN_ROOM', roomCode: code }));
+        }
+        function openAboutModal() { document.getElementById('aboutModal').style.display = 'flex'; }
+        function closeAboutModal() { document.getElementById('aboutModal').style.display = 'none'; }
+        function copyRoomCode() {
+            const codeText = document.getElementById('generatedCode').innerText;
+            if(codeText === '----') return;
+            navigator.clipboard.writeText(codeText).then(() => {
+                alert('Цифровой код стола успешно скопирован: ' + codeText);
+            }).catch(err => { console.error(err); });
+        }
+        document.getElementById('chatInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { sendChatMessage(); }
+        });
+    </script>
 </body>
 </html>
