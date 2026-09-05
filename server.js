@@ -1,5 +1,5 @@
 /* ==========================================================================
-   SANI GROUP — «Паук» пасьянс. Локальный сервер (server.js)
+   SANI GROUP — Пасьянс «Паук». Локальный сервер (server.js)
    Никаких внешних зависимостей — только встроенные модули Node.js.
    Запуск:  node server.js
    Затем откройте в браузере:  http://localhost:3000
@@ -24,11 +24,9 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
-  // Корректно отрезаем параметры строки и берем чистый путь к файлу
   let urlPath = decodeURIComponent(req.url.split("?")[0]);
   if (urlPath === "/") urlPath = "/index.html";
 
-  // Защита от взлома и выхода за пределы папки проекта
   const safePath = path.normalize(path.join(ROOT, urlPath));
   if (!safePath.startsWith(ROOT)) {
     res.writeHead(403);
@@ -53,6 +51,5 @@ server.listen(PORT, () => {
   console.log("  ПАУК — пасьянс, разработано SANI GROUP");
   console.log(`  Сервер запущен: http://localhost:${PORT}`);
   console.log("  Откройте эту ссылку в браузере на компьютере или телефоне");
-  console.log("  (телефон должен быть в той же сети, используйте IP ПК).");
   console.log("========================================================");
 });

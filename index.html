@@ -8,7 +8,7 @@
 </head>
 <body>
 
-  <!-- КОМПАКТНОЕ ГЛАВНОЕ МЕНЮ ПО ЦЕНТРУ -->
+  <!-- ЦЕНТРАЛЬНОЕ ОКНО-МЕНЮ -->
   <div id="start-screen" class="menu-overlay">
     <div class="menu-widget">
       <div class="menu-header">
@@ -66,7 +66,7 @@
         </button>
       </div>
 
-      <!-- Пользовательский плеер фоновой музыки -->
+      <!-- Музыкальный плеер -->
       <div class="music-player">
         <label class="music-upload-btn" id="music-label">
           🎵 Своя музыка
@@ -82,7 +82,7 @@
       </div>
     </header>
 
-    <!-- Счётчики и статус игры -->
+    <!-- Информационная панель -->
     <div class="statusbar">
       <div class="stat">
         <span class="stat-label">Сложность</span>
@@ -109,14 +109,14 @@
       </div>
     </main>
 
-    <!-- Нижняя панель с акцентированной кнопкой раздачи колоды -->
+    <!-- Нижняя панель с кнопкой раздачи -->
     <footer class="action-footer">
       <div class="deal-container">
         <button id="btn-deal-deck" class="btn-deal-giant">
           <div class="deck-icon-stack">
-            <div class="deck-layer layer-1"></div>
-            <div class="deck-layer layer-2"></div>
             <div class="deck-layer layer-3"></div>
+            <div class="deck-layer layer-2"></div>
+            <div class="deck-layer layer-1"></div>
           </div>
           <div class="deck-info">
             <span class="deck-action-title">НОВАЯ РАЗДАЧА</span>
@@ -125,15 +125,13 @@
         </button>
       </div>
       <div class="table-footer">
-        © <span id="year">2026</span> — СТУДИЯ КАРТОЧНЫХ ИГР SANI GROUP
+        © 2026 — СТУДИЯ КАРТОЧНЫХ ИГР SANI GROUP
       </div>
     </footer>
   </div>
 
-  <div id="drag-layer"></div>
-
-  <!-- Модальное окно завершения матча -->
-  <div id="modal-end" class="modal-overlay" hidden>
+  <!-- МОДАЛЬНОЕ ОКНО КОНЦА ИГРЫ -->
+  <div id="modal-end" class="modal-overlay" style="display: none !important;">
     <div class="modal modal-end">
       <div id="end-icon" class="end-icon">🏆</div>
       <h2 id="end-title">Победа!</h2>
