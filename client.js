@@ -1,330 +1,476 @@
-const canvas = document.getElementById('boardCanvas');
-const ctx = canvas.getContext('2d');
-const menuScreen = document.getElementById('menuScreen');
-const gameScreen = document.getElementById('gameScreen');
-const statusUpdate = document.getElementById('statusUpdate');
-const chatBox = document.getElementById('chatBox');
-const chatMessages = document.getElementById('chatMessages');
-const chatInput = document.getElementById('chatInput');
-const gameOverScreen = document.getElementById('gameOverScreen');
-const resultTitle = document.getElementById('resultTitle');
-const resultText = document.getElementById('resultText');
-const rematchBtn = document.getElementById('rematchBtn');
-const bgMusic = document.getElementById('bgMusic');
-const musicToggleBtn = document.getElementById('musicToggleBtn');
+(function () {
+  "use strict";
 
-const fxCanvas = document.getElementById('fxCanvas');
-const fxCtx = fxCanvas.getContext('2d');
+  const SUITS_ALL = [
+    { key: "S", glyph: "♠", color: "black" },
+    { key: "H", glyph: "♥", color: "red" },
+    { key: "D", glyph: "♦", color: "red" },
+    { key: "C", glyph: "♣", color: "black" },
+  ];
+  const RANK_NAMES = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+  const COLS = 10;
+  const TOTAL_CARDS = 104;
+  const TOTAL_SEQUENCES = 8;
 
-const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-const ws = new WebSocket(`${protocol}${window.location.host}`);
+  let state = null;
+  let history = [];
+  let timerHandle = null;
+  let startTime = null;
+  let hintTimeout = null;
 
-let myHand = [];
-let tableLine = [];
-let myColor = null;
-let currentTurn = null;
-let selectedBoneIndex = null;
-let fireworks = [];
-let fireworkTimer = null;
+  // Компоненты плеера фоновой музыки
+  const audioEl = document.getElementById("bg-audio");
+  const musicUpload = document.getElementById("music-upload");
+  const musicLabel = document.getElementById("music-label");
+  const btnMute = document.getElementById("btn-mute");
 
-const virtualSize = 400;
+  musicUpload.addEventListener("change", function(e) {
+    const file = e.target.files;
+    if (file) {
+      const url = URL.createObjectURL(file);
+      audioEl.src = url;
+      audioEl.play().catch(err => console.log("Интерактивное требование автоплея:", err));
+      musicLabel.textContent = "🎵 " + file.name.substring(0, 10) + "...";
+      btnMute.style.display = "inline-block";
+      btnMute.textContent = "🔊";
+    }
+  });
 
-function resizeFxCanvas() {
-    fxCanvas.width = window.innerWidth;
-    fxCanvas.height = window.innerHeight;
-}
-window.addEventListener('resize', resizeFxCanvas);
-resizeFxCanvas();
-
-ws.onclose = () => {
-    statusUpdate.innerText = "⚠️ Связь прервана! Перезагрузите страницу.";
-    statusUpdate.style.color = "#ef4444";
-};
-
-function toggleMusic() {
-    if (bgMusic.paused) {
-        bgMusic.play().catch(e => console.log(e));
-        musicToggleBtn.style.opacity = "1";
-        musicToggleBtn.style.background = "linear-gradient(to bottom, #22c55e, #16a34a)"; 
+  btnMute.addEventListener("click", function() {
+    if (audioEl.paused) {
+      audioEl.play();
+      btnMute.textContent = "🔊";
     } else {
-        bgMusic.pause();
-        musicToggleBtn.style.opacity = "0.6";
-        musicToggleBtn.style.background = ""; 
+      audioEl.pause();
+      btnMute.textContent = "🔇";
     }
-}
+  });
 
-function playTurnSound() {
-    try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        let osc = audioCtx.createOscillator(); let gain = audioCtx.createGain();
-        osc.type = 'sine'; osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.15);
-    } catch (e) {}
-}
-
-function playErrorSound() {
-    try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        let osc = audioCtx.createOscillator(); let gain = audioCtx.createGain();
-        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(140, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.25);
-    } catch(e){}
-}
-
-function playWinSound() {
-    try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        [523, 659, 783].forEach((f, idx) => {
-            let osc = audioCtx.createOscillator(); let gain = audioCtx.createGain();
-            osc.frequency.value = f; gain.gain.setValueAtTime(0.06, audioCtx.currentTime + idx*0.05);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
-            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.6);
-        });
-    } catch(e){}
-}
-
-function startGame(mode) {
-    menuScreen.style.display = 'none';
-    gameScreen.style.display = 'flex';
-    chatBox.style.display = mode === 'pvp' ? 'block' : 'none';
-    ws.send(JSON.stringify({ type: 'START_GAME', mode }));
-    if(bgMusic.paused) { toggleMusic(); }
-}
-
-function backToMenu() { window.location.reload(); }
-function toggleChat() { chatBox.style.display = chatBox.style.display === 'block' ? 'none' : 'block'; }
-
-function sendChatMessage() {
-    const textValue = chatInput.value.trim();
-    if(!textValue) return;
-    ws.send(JSON.stringify({ type: 'CHAT_MSG', text: textValue }));
-    chatInput.value = '';
-}
-function sendQuickEmoji(emoji) { ws.send(JSON.stringify({ type: 'CHAT_MSG', text: emoji })); }
-
-function takeFromBazar() { ws.send(JSON.stringify({ type: 'TAKE_BAZAR' })); }
-function passTurn() { ws.send(JSON.stringify({ type: 'PASS_TURN' })); }
-function requestRematch() { 
-    rematchBtn.innerText = '⏳ ОЖИДАНИЕ ОТВЕТА...';
-    rematchBtn.style.background = '#4b5563';
-    ws.send(JSON.stringify({ type: 'REQUEST_REMATCH' })); 
-}
-
-ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-
-    if (data.type === 'WAITING') {
-        statusUpdate.innerText = data.message;
-        if(data.code) { document.getElementById('generatedCode').innerText = data.code; }
-    } else if (data.type === 'GAME_STARTED' || data.type === 'STATE_UPDATE') {
-        menuScreen.style.display = 'none';
-        document.getElementById('waitingScreen').style.display = 'none';
-        gameOverScreen.style.display = 'none';
-        gameScreen.style.display = 'flex';
-        stopFireworks();
-        
-        rematchBtn.innerText = '🔄 НОВАЯ ИГРА';
-        rematchBtn.style.background = '';
-
-        myHand = data.hand;
-        tableLine = data.line;
-        
-        if (data.turn !== currentTurn && data.turn === myColor) { playTurnSound(); }
-        currentTurn = data.turn;
-        if (data.color) myColor = data.color;
-
-        document.getElementById('p1Name').innerText = myColor === 'w' ? 'ВЫ (Белые)' : 'ВЫ (Черные)';
-        document.getElementById('p2Name').innerText = data.mode === 'bot' ? 'БОТ ИИ' : 'ИГРОК';
-        document.getElementById('bazarCounter').innerText = 'БАЗАР: ' + data.bazarCount;
-        statusUpdate.innerText = currentTurn === myColor ? 'ВАШ ХОД!' : 'ОЖИДАНИЕ ХОДА...';
-        drawGame();
-    } else if (data.type === 'MOVE_ERROR') {
-        playErrorSound();
-    } else if (data.type === 'CHAT_MSG') {
-        const msgContainer = document.createElement('div');
-        const b = document.createElement('b');
-        b.textContent = data.sender + ': ';
-        const span = document.createElement('span');
-        span.textContent = data.text;
-        msgContainer.appendChild(b);
-        msgContainer.appendChild(span);
-        chatMessages.appendChild(msgContainer);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    } else if (data.type === 'GAME_OVER') {
-        gameOverScreen.style.display = 'flex';
-        document.getElementById('resultReason').innerText = data.reason;
-        if (data.result === 'WIN') {
-            resultTitle.innerText = '🎉 ПОБЕДА! 🎉'; resultTitle.className = 'result-title win-style';
-            playWinSound(); startFireworks();
-        } else {
-            resultTitle.innerText = '💀 ПОРАЖЕНИЕ 💀'; resultTitle.className = 'result-title lose-style';
+  function buildDeck(numSuits) {
+    const suits = SUITS_ALL.slice(0, numSuits);
+    const setsPerSuit = TOTAL_CARDS / (13 * numSuits);
+    const deck = [];
+    let uid = 0;
+    for (const suit of suits) {
+      for (let s = 0; s < setsPerSuit; s++) {
+        for (let rank = 1; rank <= 13; rank++) {
+          deck.push({
+            id: "c" + uid++,
+            suit: suit.key,
+            glyph: suit.glyph,
+            color: suit.color,
+            rank,
+            faceUp: false,
+          });
         }
-    } else if (data.type === 'REMATCH_REQUESTED') {
-        rematchBtn.innerText = '⚡ СОПЕРНИК ХОЧЕТ ИГРАТЬ СНОВА! НАЖМИТЕ';
-        rematchBtn.style.background = 'linear-gradient(to bottom, #10b981, #047857)'; 
-    } else if (data.type === 'OPPONENT_DISCONNECTED') {
-        statusUpdate.innerText = 'Соперник покинул игру.';
-        statusUpdate.style.color = "#ef4444";
+      }
     }
-};
+    shuffle(deck);
+    return deck;
+  }
 
-canvas.addEventListener('click', (e) => {
-    if (currentTurn !== myColor) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.clientX - rect.left;
-    const clientY = e.clientY - rect.top;
-    const scaleX = virtualSize / rect.width;
-    const scaleY = virtualSize / rect.height;
-    const vx = Math.floor(clientX * scaleX);
-    const vy = Math.floor(clientY * scaleY);
-
-    if (vy >= 325 && vy <= 395) {
-        let bCount = myHand.length;
-        let bWidth = 35; let bGap = 6;
-        let startX = (virtualSize - (bCount * bWidth + (bCount - 1) * bGap)) / 2;
-
-        for (let i = 0; i < bCount; i++) {
-            let x1 = startX + i * (bWidth + bGap);
-            let x2 = x1 + bWidth;
-            let targetMinY = (selectedBoneIndex === i) ? 325 : 335;
-            let targetMaxY = targetMinY + 50;
-            
-            if (vx >= x1 && vx <= x2 && vy >= targetMinY && vy <= targetMaxY) {
-                selectedBoneIndex = (selectedBoneIndex === i) ? null : i;
-                drawGame();
-                return;
-            }
-        }
-    } 
-    else if (selectedBoneIndex !== null && vy < 280) {
-        let side = vx < (virtualSize / 2) ? 'left' : 'right';
-        ws.send(JSON.stringify({ type: 'MAKE_MOVE', boneIndex: selectedBoneIndex, direction: side }));
-        selectedBoneIndex = null;
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
     }
-});
+  }
 
-function drawBone(x, y, bone, isSelected, isHorizontal, scaleFactor = 1) {
-    let w = (isHorizontal ? 50 : 26) * scaleFactor;
-    let h = (isHorizontal ? 26 : 50) * scaleFactor;
+  function newGame(numSuits) {
+    clearHintHighlight();
+    const deck = buildDeck(numSuits);
+    const columns = Array.from({ length: COLS }, () => []);
 
-    ctx.save();
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-    ctx.beginPath();
-    ctx.roundRect(x + 2, y + 3, w, h, 4 * scaleFactor);
-    ctx.fill();
-
-    let g = ctx.createLinearGradient(x, y, x + w, y + h);
-    if(isSelected) {
-        g.addColorStop(0, '#fef08a'); g.addColorStop(1, '#ca8a04');
-    } else {
-        g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#cbd5e1');
-    }
-    ctx.fillStyle = g;
-    ctx.beginPath(); 
-    ctx.roundRect(x, y, w, h, 4 * scaleFactor); 
-    ctx.fill();
-
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.beginPath();
-    ctx.roundRect(x, y, w, h * 0.3, 2 * scaleFactor);
-    ctx.fill();
-    ctx.restore();
-
-    ctx.strokeStyle = '#334155'; ctx.lineWidth = 1;
-    ctx.strokeRect(x, y, w, h);
-
-    ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1.5 * scaleFactor;
-    ctx.beginPath();
-    if (isHorizontal) { ctx.moveTo(x + w/2, y); ctx.lineTo(x + w/2, y + h); }
-    else { ctx.moveTo(x, y + h/2); ctx.lineTo(x + w, y + h/2); }
-    ctx.stroke();
-
-    function drawDots(cx, cy, count) {
-        ctx.fillStyle = '#0f172a';
-        let r = 2.5 * scaleFactor;
-        let d = 5 * scaleFactor;
-        ctx.beginPath();
-        if (count === 1) { ctx.arc(cx, cy, r, 0, Math.PI*2); }
-        if (count === 2) { ctx.arc(cx - d, cy - d, r, 0, Math.PI*2); ctx.arc(cx + d, cy + d, r, 0, Math.PI*2); }
-        if (count === 3) { ctx.arc(cx - d, cy - d, r, 0, Math.PI*2); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.arc(cx + d, cy + d, r, 0, Math.PI*2); }
-        if (count === 4) { ctx.arc(cx - d, cy - d, r, 0, Math.PI*2); ctx.arc(cx + d, cy - d, r, 0, Math.PI*2); ctx.arc(cx - d, cy + d, r, 0, Math.PI*2); ctx.arc(cx + d, cy + d, r, 0, Math.PI*2); }
-        if (count === 5) { ctx.arc(cx - d, cy - d, r, 0, Math.PI*2); ctx.arc(cx + d, cy - d, r, 0, Math.PI*2); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.arc(cx - d, cy + d, r, 0, Math.PI*2); ctx.arc(cx + d, cy + d, r, 0, Math.PI*2); }
-        if (count === 6) { ctx.arc(cx - d, cy - d, r, 0, Math.PI*2); ctx.arc(cx + d, cy - d, r, 0, Math.PI*2); ctx.arc(cx - d, cy, r, 0, Math.PI*2); ctx.arc(cx + d, cy, r, 0, Math.PI*2); ctx.arc(cx - d, cy + d, r, 0, Math.PI*2); ctx.arc(cx + d, cy + d, r, 0, Math.PI*2); }
-        ctx.fill();
+    for (let c = 0; c < COLS; c++) {
+      const count = c < 4 ? 6 : 5;
+      for (let i = 0; i < count; i++) {
+        const card = deck.pop();
+        card.faceUp = i === count - 1;
+        columns[c].push(card);
+      }
     }
 
-    if (isHorizontal) { drawDots(x + w/4, y + h/2, bone[0]); drawDots(x + (3*w)/4, y + h/2, bone[1]); }
-    else { drawDots(x + w/2, y + h/4, bone[0]); drawDots(x + w/2, y + (3*h)/4, bone[1]); }
-}
+    const stockDeals = [];
+    while (deck.length) {
+      stockDeals.push(deck.splice(0, 10));
+    }
 
-function drawGame() {
-    ctx.clearRect(0, 0, virtualSize, virtualSize);
-    let startLineY = 140;
+    state = {
+      numSuits,
+      columns,
+      stockDeals,
+      completed: 0,
+      moves: 0,
+      selection: null,
+      finished: false,
+    };
+    history = [];
+    updateDifficultyLabel(numSuits);
+    resetTimer();
+    render();
+    setUndoEnabled(false);
+    document.getElementById("start-screen").hidden = true;
+  }
+
+  function isMovableRun(column, fromIndex) {
+    for (let i = fromIndex; i < column.length; i++) {
+      if (!column[i].faceUp) return false;
+      if (i > fromIndex) {
+        const prev = column[i - 1];
+        const cur = column[i];
+        if (cur.suit !== prev.suit || cur.rank !== prev.rank - 1) return false;
+      }
+    }
+    return true;
+  }
+
+  function canPlace(movingCard, targetColumn) {
+    if (targetColumn.length === 0) return true;
+    const top = targetColumn[targetColumn.length - 1];
+    return top.faceUp && top.rank === movingCard.rank + 1;
+  }
+
+  function snapshot() {
+    return JSON.parse(JSON.stringify({
+      columns: state.columns,
+      stockDeals: state.stockDeals,
+      completed: state.completed,
+      moves: state.moves,
+    }));
+  }
+
+  function pushHistory() {
+    history.push(snapshot());
+    if (history.length > 60) history.shift();
+    setUndoEnabled(true);
+  }
+
+  function undo() {
+    if (!history.length || state.finished) return;
+    clearHintHighlight();
+    const snap = history.pop();
+    state.columns = snap.columns;
+    state.stockDeals = snap.stockDeals;
+    state.completed = snap.completed;
+    state.moves = snap.moves;
+    state.selection = null;
+    setUndoEnabled(history.length > 0);
+    render();
+  }
+
+  function tryMove(fromCol, fromIndex, toCol) {
+    if (fromCol === toCol) return false;
+    const source = state.columns[fromCol];
+    const target = state.columns[toCol];
+    if (fromIndex < 0 || fromIndex >= source.length) return false;
+    if (!isMovableRun(source, fromIndex)) return false;
+
+    const moving = source[fromIndex];
+    if (!canPlace(moving, target)) return false;
+
+    clearHintHighlight();
+    pushHistory();
+
+    const run = source.splice(fromIndex, source.length - fromIndex);
+    target.push(...run);
+
+    if (source.length) {
+      source[source.length - 1].faceUp = true;
+    }
+
+    state.moves++;
+    state.selection = null;
+
+    checkSequenceComplete(toCol);
+    render();
+    checkGameEnd();
+    return true;
+  }
+
+  function checkSequenceComplete(colIndex) {
+    const col = state.columns[colIndex];
+    if (col.length < 13) return;
+    const slice = col.slice(col.length - 13);
+    const suit = slice.suit;
+    let ok = slice.rank === 13;
+    for (let i = 0; ok && i < 13; i++) {
+      if (slice[i].suit !== suit || slice[i].rank !== 13 - i) ok = false;
+    }
+    if (!ok) return;
+
+    col.splice(col.length - 13, 13);
+    if (col.length) col[col.length - 1].faceUp = true;
+    state.completed++;
+    render();
+  }
+
+  function dealFromStock() {
+    if (state.finished) return;
+    if (!state.stockDeals.length) return;
     
-    let scaleFactor = 1;
-    if (tableLine.length > 6) scaleFactor = 0.65;
-    if (tableLine.length > 11) scaleFactor = 0.45;
+    if (state.columns.some((c) => c.length === 0)) {
+      alert("Нельзя раздавать карты, пока на поле есть пустые столбцы!");
+      return;
+    }
+    
+    clearHintHighlight();
+    pushHistory();
+    const portion = state.stockDeals.pop();
+    for (let c = 0; c < COLS; c++) {
+      const card = portion[c];
+      card.faceUp = true;
+      state.columns[c].push(card);
+      checkSequenceComplete(c);
+    }
+    state.moves++;
+    render();
+    checkGameEnd();
+  }
 
-    let currentX = 20;
+  function getBestMove() {
+    let possibleMoves = [];
 
-    ctx.fillStyle = 'rgba(255,255,255,0.02)';
-    ctx.fillRect(0, 0, virtualSize/2, 280);
-    ctx.fillRect(virtualSize/2, 0, virtualSize/2, 280);
-    ctx.font = '10px Arial'; ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.textAlign = 'center';
-    ctx.fillText('← КЛИК СЮДА: ВЫЛОЖИТЬ НАЛЕВО', 100, 20);
-    ctx.fillText('КЛИК СЮДА: ВЫЛОЖИТЬ НАПРАВО →', 300, 20);
+    for (let c = 0; c < COLS; c++) {
+      const col = state.columns[c];
+      for (let i = col.length - 1; i >= 0; i--) {
+        if (!col[i].faceUp) break;
+        if (!isMovableRun(col, i)) continue;
 
-    tableLine.forEach(bone => {
-        let isDub = bone[0] === bone[1];
-        let rx = currentX;
-        let ry = isDub ? startLineY - (12 * scaleFactor) : startLineY;
-        drawBone(rx, ry, bone, false, !isDub, scaleFactor);
-        currentX += (isDub ? 30 : 54) * scaleFactor;
+        const movingCard = col[i];
+
+        for (let t = 0; t < COLS; t++) {
+          if (t === c) continue;
+          if (canPlace(movingCard, state.columns[t])) {
+            const targetCol = state.columns[t];
+            let score = 0;
+
+            if (targetCol.length > 0 && targetCol[targetCol.length - 1].suit === movingCard.suit) {
+              score += 10;
+            }
+            if (i > 0 && !col[i - 1].faceUp) {
+              score += 5;
+            }
+            if (targetCol.length === 0) {
+              score += 2;
+            }
+
+            possibleMoves.push({ fromCol: c, fromIndex: i, toCol: t, score: score });
+          }
+        }
+      }
+    }
+
+    if (possibleMoves.length === 0) return null;
+    possibleMoves.sort((a, b) => b.score - a.score);
+    return possibleMoves;
+  }
+
+  function showHint() {
+    clearHintHighlight();
+    const hint = getBestMove();
+    if (!hint) {
+      alert("Доступных ходов нет! Нажмите «Новая раздача» внизу экрана.");
+      return;
+    }
+
+    const sourceCardEl = document.querySelector(`.card[data-col="${hint.fromCol}"][data-index="${hint.fromIndex}"]`);
+    if (sourceCardEl) sourceCardEl.classList.add("hint-highlight");
+
+    const targetColEl = document.querySelectorAll(".column")[hint.toCol];
+    if (targetColEl) targetColEl.classList.add("hint-target-column");
+
+    hintTimeout = setTimeout(clearHintHighlight, 4000);
+  }
+
+  function clearHintHighlight() {
+    if (hintTimeout) clearTimeout(hintTimeout);
+    document.querySelectorAll(".card").forEach(el => el.classList.remove("hint-highlight"));
+    document.querySelectorAll(".column").forEach(el => el.classList.remove("hint-target-column"));
+  }
+
+  function hasAnyLegalMove() {
+    if (state.columns.some((c) => c.length === 0)) return true;
+    return getBestMove() !== null;
+  }
+
+  function checkGameEnd() {
+    if (state.completed >= TOTAL_SEQUENCES) {
+      finishGame(true);
+      return;
+    }
+    if (!state.stockDeals.length && !hasAnyLegalMove()) {
+      finishGame(false);
+    }
+  }
+
+  function finishGame(won) {
+    state.finished = true;
+    stopTimer();
+    const overlay = document.getElementById("modal-end");
+    document.getElementById("end-icon").textContent = won ? "🏆" : "🕸️";
+    document.getElementById("end-title").textContent = won ? "Победа!" : "Игра окончена";
+    document.getElementById("end-sub").textContent = won
+      ? "Все восемь последовательностей собраны!"
+      : "Больше нет доступных ходов и карт в колоде.";
+    document.getElementById("end-moves").textContent = state.moves;
+    document.getElementById("end-time").textContent = formatTime(elapsedSeconds());
+    overlay.hidden = false;
+  }
+
+  function resetTimer() {
+    stopTimer();
+    startTime = Date.now();
+    timerHandle = setInterval(() => {
+      document.getElementById("stat-time").textContent = formatTime(elapsedSeconds());
+    }, 1000);
+  }
+  function stopTimer() {
+    if (timerHandle) clearInterval(timerHandle);
+    timerHandle = null;
+  }
+  function elapsedSeconds() {
+    return Math.floor((Date.now() - startTime) / 1000);
+  }
+  function formatTime(sec) {
+    const m = Math.floor(sec / 60).toString().padStart(2, "0");
+    const s = (sec % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  }
+
+  function render() {
+    renderTableau();
+    document.getElementById("stat-moves").textContent = state.moves;
+    document.getElementById("stat-sequences").innerHTML = `${state.completed}<i>/8</i>`;
+    document.getElementById("stat-stock").textContent = state.stockDeals.length;
+    
+    const dealBtn = document.getElementById("btn-deal-deck");
+    if (state.stockDeals.length === 0 || state.finished) {
+      dealBtn.disabled = true;
+    } else {
+      dealBtn.disabled = false;
+    }
+  }
+
+  function updateDifficultyLabel(numSuits) {
+    const label = numSuits === 1 ? "1 масть" : numSuits === 2 ? "2 масти" : "4 масти";
+    document.getElementById("stat-difficulty").textContent = label;
+  }
+
+  function renderTableau() {
+    const tableau = document.getElementById("tableau");
+    tableau.innerHTML = "";
+    state.columns.forEach((col, colIndex) => {
+      const colEl = document.createElement("div");
+      colEl.className = "column";
+      colEl.dataset.col = colIndex;
+
+      const height = col.length
+        ? `calc(var(--card-h) + ${(col.length - 1)} * var(--stack-offset))`
+        : "var(--card-h)";
+      colEl.style.minHeight = height;
+
+      col.forEach((card, cardIndex) => {
+        const cardEl = buildCardEl(card, colIndex, cardIndex);
+        cardEl.style.top = `calc(${cardIndex} * var(--stack-offset))`;
+        cardEl.style.zIndex = cardIndex;
+        colEl.appendChild(cardEl);
+      });
+
+      colEl.addEventListener("pointerdown", (e) => {
+        if (state.columns[colIndex].length === 0 && state.selection) {
+          e.stopPropagation();
+          tryMove(state.selection.col, state.selection.index, colIndex);
+        }
+      });
+
+      tableau.appendChild(colEl);
+    });
+  }
+
+  function buildCardEl(card, colIndex, cardIndex) {
+    const el = document.createElement("div");
+    el.className = "card " + (card.color === "red" ? "is-red" : "is-black");
+    el.dataset.col = colIndex;
+    el.dataset.index = cardIndex;
+    el.dataset.id = card.id;
+
+    const isSel = state.selection && state.selection.col === colIndex && state.selection.index === cardIndex;
+
+    if (card.faceUp) {
+      el.innerHTML = `
+        <div class="card-face">
+          <div class="corner top"><span>${RANK_NAMES[card.rank]}</span><span>${card.glyph}</span></div>
+          <div class="pip">${card.glyph}</div>
+          <div class="corner bottom"><span>${RANK_NAMES[card.rank]}</span><span>${card.glyph}</span></div>
+        </div>`;
+      
+      el.addEventListener("pointerdown", (e) => {
+        if (state.finished) return;
+        if (!isMovableRun(state.columns[colIndex], cardIndex)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        handleTap(colIndex, cardIndex);
+      });
+    } else {
+      el.innerHTML = `<div class="card-back"></div>`;
+    }
+
+    if (isSel) el.classList.add("selected");
+    return el;
+  }
+
+  function handleTap(colIndex, cardIndex) {
+    if (state.selection && state.selection.col === colIndex && state.selection.index === cardIndex) {
+      state.selection = null;
+      render();
+      return;
+    }
+    if (state.selection) {
+      const moved = tryMove(state.selection.col, state.selection.index, colIndex);
+      if (moved) return;
+    }
+    state.selection = { col: colIndex, index: cardIndex };
+    render();
+  }
+
+  function setUndoEnabled(enabled) {
+    document.getElementById("btn-undo").disabled = !enabled;
+  }
+
+  function initUI() {
+    document.getElementById("year").textContent = new Date().getFullYear();
+
+    document.getElementById("btn-hint").addEventListener("click", showHint);
+    document.getElementById("btn-undo").addEventListener("click", undo);
+    
+    document.getElementById("btn-menu").addEventListener("click", () => {
+      document.getElementById("start-screen").hidden = false;
     });
 
-    let bCount = myHand.length;
-    let bWidth = 35; let bGap = 6;
-    let startHandX = (virtualSize - (bCount * bWidth + (bCount - 1) * bGap)) / 2;
-    for (let i = 0; i < bCount; i++) {
-        let hx = startHandX + i * (bWidth + bGap);
-        let hy = selectedBoneIndex === i ? 328 : 338;
-        drawBone(hx, hy, myHand[i], selectedBoneIndex === i, false, 1);
-    }
-}
+    document.querySelectorAll(".btn-menu-choice").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const suits = parseInt(btn.dataset.suits, 10);
+        newGame(suits);
+      });
+    });
 
-function createFireworkExplosion(x, y) {
-    const colors = ['#eab308', '#f97316', '#ef4444', '#3b82f6', '#10b981'];
-    let baseColor = colors[Math.floor(Math.random() * colors.length)];
-    for (let i = 0; i < 30; i++) {
-        let angle = Math.random() * Math.PI * 2; let speed = Math.random() * 3 + 2;
-        fireworks.push({ x: x, y: y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, alpha: 1, color: baseColor, size: Math.random() * 1.5 + 1.5 });
-    }
-}
+    document.getElementById("btn-play-again").addEventListener("click", () => {
+      document.getElementById("modal-end").hidden = true;
+      document.getElementById("start-screen").hidden = false;
+    });
 
-function updateFireworksLoop() {
-    fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
-    for (let i = fireworks.length - 1; i >= 0; i--) {
-        let p = fireworks[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.alpha -= 0.02;
-        if (p.alpha <= 0) { fireworks.splice(i, 1); continue; }
-        fxCtx.save(); fxCtx.globalAlpha = p.alpha; fxCtx.fillStyle = p.color;
-        fxCtx.beginPath(); fxCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2); fxCtx.fill(); fxCtx.restore();
-    }
-    if (fireworks.length > 0 || fireworkTimer !== null) { requestAnimationFrame(updateFireworksLoop); }
-}
+    document.getElementById("btn-deal-deck").addEventListener("click", dealFromStock);
 
-function startFireworks() {
-    if (fireworkTimer !== null) return;
-    updateFireworksLoop();
-    fireworkTimer = setInterval(() => {
-        createFireworkExplosion(Math.random() * fxCanvas.width, Math.random() * (fxCanvas.height * 0.4) + 100);
-    }, 500);
-}
+    document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        undo();
+      }
+    });
+  }
 
-function stopFireworks() { clearInterval(fireworkTimer); fireworkTimer = null; fireworks = []; fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height); }
+  document.addEventListener("DOMContentLoaded", () => {
+    initUI();
+    document.getElementById("start-screen").hidden = false;
+  });
+})();
