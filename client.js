@@ -19,28 +19,25 @@
   let hintTimeout = null;
 
   const audioEl = document.getElementById("bg-audio");
-  const musicUpload = document.getElementById("music-upload");
-  const musicLabel = document.getElementById("music-label");
   const btnMute = document.getElementById("btn-mute");
 
-  if (musicUpload) {
-    musicUpload.addEventListener("change", function(e) {
-      const file = e.target.files;
-      if (file && file[0]) {
-        const url = URL.createObjectURL(file[0]);
-        audioEl.src = url;
-        audioEl.play().catch(err => console.log("Audio play blocked:", err));
-        musicLabel.textContent = "🎵 " + file[0].name.substring(0, 10) + "...";
-        btnMute.style.display = "inline-block";
-        btnMute.textContent = "🔊";
+  // Автозапуск музыки при первом клике пользователя (требование современных браузеров)
+  function initAutoplayMusic() {
+    const startPlay = () => {
+      if (audioEl && audioEl.paused) {
+        audioEl.play().catch(err => console.log("Музыка ждет активности пользователя"));
       }
-    });
+      document.removeEventListener("click", startPlay);
+      document.removeEventListener("pointerdown", startPlay);
+    };
+    document.addEventListener("click", startPlay);
+    document.addEventListener("pointerdown", startPlay);
   }
 
-  if (btnMute) {
-    btnMute.addEventListener("click", function() {
+  if (btnMute && audioEl) {
+    btnMute.addEventListener("click", function () {
       if (audioEl.paused) {
-        audioEl.play();
+        audioEl.play().catch(err => console.log(err));
         btnMute.textContent = "🔊";
       } else {
         audioEl.pause();
@@ -109,7 +106,10 @@
     };
     history = [];
     
-    hideEndModal();
+    const endModal = document.getElementById("modal-end");
+    if (endModal) {
+      endModal.style.setProperty("display", "none", "important");
+    }
     document.getElementById("start-screen").style.display = "none";
     
     updateDifficultyLabel(numSuits);
@@ -198,20 +198,22 @@
     const col = state.columns[colIndex];
     if (col.length < 13) return;
     
-    // Ищем упорядоченную последовательность от К до А одной масти с конца колонки
-    for (let i = col.length - 13; i <= col.length - 1; i++) {
-      if (!col[i].faceUp) return;
-    }
+    // Проверяем последние 13 карт
+    const startIndex = col.length - 13;
+    const slice = col.slice(startIndex);
     
-    const slice = col.slice(col.length - 13);
+    // Все 13 карт должны быть открыты, одной масти и идти строго от K(13) до A(1)
     const suit = slice[0].suit;
-    let ok = slice[0].rank === 13; // К
-    for (let i = 0; ok && i < 13; i++) {
-      if (slice[i].suit !== suit || slice[i].rank !== 13 - i) ok = false;
+    let ok = true;
+    for (let i = 0; i < 13; i++) {
+      if (!slice[i].faceUp || slice[i].suit !== suit || slice[i].rank !== 13 - i) {
+        ok = false;
+        break;
+      }
     }
     if (!ok) return;
 
-    col.splice(col.length - 13, 13);
+    col.splice(startIndex, 13);
     if (col.length) col[col.length - 1].faceUp = true;
     state.completed++;
     render();
@@ -240,6 +242,7 @@
     checkGameEnd();
   }
 
+  // Отремонтированный алгоритм поиска лучшего доступного хода
   function getBestMove() {
     if (!state) return null;
     let possibleMoves = [];
@@ -247,8 +250,8 @@
     for (let c = 0; c < COLS; c++) {
       const col = state.columns[c];
       for (let i = col.length - 1; i >= 0; i--) {
-        if (!col[i].faceUp) break;
-        if (!isMovableRun(col, i)) continue;
+        if (!col[i].faceUp) break; // Карты закрыты, выходим
+        if (!isMovableRun(col, i)) continue; // Последовательность карт выше нарушена
 
         const movingCard = col[i];
 
@@ -258,12 +261,15 @@
             const targetCol = state.columns[t];
             let score = 0;
 
+            // Вес хода: совпадение мастей дает высший приоритет
             if (targetCol.length > 0 && targetCol[targetCol.length - 1].suit === movingCard.suit) {
               score += 10;
             }
+            // Открытие новой карты под стопкой ценно
             if (i > 0 && !col[i - 1].faceUp) {
               score += 5;
             }
+            // Перенос в пустую ячейку
             if (targetCol.length === 0) {
               score += 2;
             }
@@ -276,7 +282,7 @@
 
     if (possibleMoves.length === 0) return null;
     possibleMoves.sort((a, b) => b.score - a.score);
-    return possibleMoves;
+    return possibleMoves[0]; // Возвращаем самый выгодный ход
   }
 
   function showHint() {
@@ -287,9 +293,11 @@
       return;
     }
 
+    // Подсвечиваем карту-источник
     const sourceCardEl = document.querySelector(`.card[data-col="${hint.fromCol}"][data-index="${hint.fromIndex}"]`);
     if (sourceCardEl) sourceCardEl.classList.add("hint-highlight");
 
+    // Подсвечиваем целевую колонку
     const targetColEl = document.querySelectorAll(".column")[hint.toCol];
     if (targetColEl) targetColEl.classList.add("hint-target-column");
 
@@ -343,23 +351,20 @@
       document.getElementById("stat-time").textContent = formatTime(elapsedSeconds());
     }, 1000);
   }
-  
   function stopTimer() {
     if (timerHandle) clearInterval(timerHandle);
     timerHandle = null;
   }
-  
   function elapsedSeconds() {
     if (!startTime) return 0;
     return Math.floor((Date.now() - startTime) / 1000);
   }
-  
   function formatTime(sec) {
     const m = Math.floor(sec / 60).toString().padStart(2, "0");
     const s = (sec % 60).toString().padStart(2, "0");
     return m + ":" + s;
   }
-  
+
   function render() {
     if (!state) return;
     renderTableau();
@@ -375,59 +380,63 @@
       }
     }
   }
-  
+
   function updateDifficultyLabel(numSuits) {
     const label = numSuits === 1 ? "1 масть" : numSuits === 2 ? "2 масти" : "4 масти";
     document.getElementById("stat-difficulty").textContent = label;
   }
-  
+
   function renderTableau() {
     const tableau = document.getElementById("tableau");
     if (!tableau || !state) return;
     tableau.innerHTML = "";
-    
     state.columns.forEach((col, colIndex) => {
       const colEl = document.createElement("div");
       colEl.className = "column";
       colEl.dataset.col = colIndex;
       
-      const height = col.length ? "calc(var(--card-h) + " + (col.length - 1) + " * var(--stack-offset))" : "var(--card-h)";
+      const height = col.length
+        ? "calc(var(--card-h) + " + (col.length - 1) + " * var(--stack-offset))"
+        : "var(--card-h)";
       colEl.style.minHeight = height;
-      
+
       col.forEach((card, cardIndex) => {
         const cardEl = buildCardEl(card, colIndex, cardIndex);
         cardEl.style.top = "calc(" + cardIndex + " * var(--stack-offset))";
         cardEl.style.zIndex = cardIndex;
         colEl.appendChild(cardEl);
       });
-      
+
       colEl.addEventListener("pointerdown", (e) => {
         if (state.columns[colIndex].length === 0 && state.selection) {
           e.stopPropagation();
           tryMove(state.selection.col, state.selection.index, colIndex);
         }
       });
-      
       tableau.appendChild(colEl);
     });
   }
-  
+
   function buildCardEl(card, colIndex, cardIndex) {
     const el = document.createElement("div");
     el.className = "card " + (card.color === "red" ? "is-red" : "is-black");
     el.dataset.col = colIndex;
     el.dataset.index = cardIndex;
     el.dataset.id = card.id;
-    
-    const isSel = state.selection && state.selection.col === colIndex && cardIndex >= state.selection.index;
-    
+
+    // Подсветка всей пачки карт при выделении
+    let isPartOfSelection = false;
+    if (state.selection && state.selection.col === colIndex && cardIndex >= state.selection.index) {
+      isPartOfSelection = true;
+    }
+
     if (card.faceUp) {
       el.innerHTML = '<div class="card-face">' +
         '<div class="corner top"><span>' + RANK_NAMES[card.rank] + '</span><span>' + card.glyph + '</span></div>' +
         '<div class="pip">' + card.glyph + '</div>' +
         '<div class="corner bottom"><span>' + RANK_NAMES[card.rank] + '</span><span>' + card.glyph + '</span></div>' +
         '</div>';
-        
+      
       el.addEventListener("pointerdown", (e) => {
         if (state.finished) return;
         if (!isMovableRun(state.columns[colIndex], cardIndex)) return;
@@ -438,17 +447,13 @@
     } else {
       el.innerHTML = '<div class="card-back"></div>';
     }
-    
-    if (state.selection && state.selection.col === colIndex && state.selection.index === cardIndex) {
-      el.classList.add("selected");
-    }
-    if (isSel) {
+
+    if (isPartOfSelection) {
       el.classList.add("selected-run");
     }
-    
     return el;
   }
-  
+
   function handleTap(colIndex, cardIndex) {
     if (state.selection && state.selection.col === colIndex && state.selection.index === cardIndex) {
       state.selection = null;
@@ -462,19 +467,12 @@
     state.selection = { col: colIndex, index: cardIndex };
     render();
   }
-  
+
   function setUndoEnabled(enabled) {
     const btn = document.getElementById("btn-undo");
     if (btn) btn.disabled = !enabled;
   }
-  
-  function hideEndModal() {
-    const endModal = document.getElementById("modal-end");
-    if (endModal) {
-      endModal.style.setProperty("display", "none", "important");
-    }
-  }
-  
+
   function initUI() {
     const btnHint = document.getElementById("btn-hint");
     if (btnHint) btnHint.addEventListener("click", showHint);
@@ -489,23 +487,23 @@
         if (startScr) startScr.style.display = "flex";
       });
     }
-    
     document.querySelectorAll(".btn-menu-choice").forEach((btn) => {
       btn.addEventListener("click", () => {
         const suits = parseInt(btn.dataset.suits, 10);
         newGame(suits);
       });
     });
-    
     const btnPlayAgain = document.getElementById("btn-play-again");
     if (btnPlayAgain) {
       btnPlayAgain.addEventListener("click", () => {
-        hideEndModal();
+        const endM = document.getElementById("modal-end");
+        if (endM) {
+          endM.style.setProperty("display", "none", "important");
+        }
         const startScr = document.getElementById("start-screen");
         if (startScr) startScr.style.display = "flex";
       });
     }
-    
     const btnDeal = document.getElementById("btn-deal-deck");
     if (btnDeal) btnDeal.addEventListener("click", dealFromStock);
     
@@ -516,10 +514,14 @@
       }
     });
   }
-  
+
   document.addEventListener("DOMContentLoaded", () => {
     initUI();
-    hideEndModal();
+    initAutoplayMusic();
+    const endModal = document.getElementById("modal-end");
+    if (endModal) {
+      endModal.style.setProperty("display", "none", "important");
+    }
     const startScr = document.getElementById("start-screen");
     if (startScr) startScr.style.display = "flex";
   });

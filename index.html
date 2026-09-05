@@ -8,7 +8,7 @@
 </head>
 <body>
 
-  <!-- ЦЕНТРАЛЬНОЕ ОКНО-МЕНЮ -->
+  <!-- ЦЕНТРАЛЬНОЕ ОКНО-МЕНЮ В СТИЛЕ ШАШЕК -->
   <div id="start-screen" class="menu-overlay">
     <div class="menu-widget">
       <div class="menu-header">
@@ -66,14 +66,11 @@
         </button>
       </div>
 
-      <!-- Музыкальный плеер -->
+      <!-- Встроенный музыкальный плеер -->
       <div class="music-player">
-        <label class="music-upload-btn" id="music-label">
-          🎵 Своя музыка
-          <input type="file" id="music-upload" accept="audio/*" style="display: none;">
-        </label>
-        <audio id="bg-audio" loop></audio>
-        <button id="btn-mute" class="btn-mute" style="display: none;">🔇</button>
+        <button id="btn-mute" class="btn-mute">🔊</button>
+        <span id="music-status" class="music-status-text">🎵 Фоновая музыка</span>
+        <audio id="bg-audio" src="music.mp3" loop></audio>
       </div>
 
       <div class="credit">
@@ -114,9 +111,9 @@
       <div class="deal-container">
         <button id="btn-deal-deck" class="btn-deal-giant">
           <div class="deck-icon-stack">
-            <div class="deck-layer layer-3"></div>
-            <div class="deck-layer layer-2"></div>
             <div class="deck-layer layer-1"></div>
+            <div class="deck-layer layer-2"></div>
+            <div class="deck-layer layer-3"></div>
           </div>
           <div class="deck-info">
             <span class="deck-action-title">НОВАЯ РАЗДАЧА</span>
@@ -129,6 +126,8 @@
       </div>
     </footer>
   </div>
+
+  <div id="drag-layer"></div>
 
   <!-- МОДАЛЬНОЕ ОКНО КОНЦА ИГРЫ -->
   <div id="modal-end" class="modal-overlay" style="display: none !important;">
