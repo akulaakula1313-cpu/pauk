@@ -1,0 +1,1 @@
+{"name":"sani-group-spider","version":"8.0.0","private":true,"type":"commonjs","scripts":{"start":"node server.js","test":"node qa-test.js"},"engines":{"node":">=18"}}

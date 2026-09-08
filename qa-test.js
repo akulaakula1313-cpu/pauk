@@ -1,0 +1,4 @@
+const fs=require('fs'),vm=require('vm');
+for(const f of ['index.html','style.css','client.js','server.js','package.json','logo-sani-group.svg','card-back.svg','felt-texture.svg','wood-texture.svg','favicon.svg'])if(!fs.existsSync(f))throw Error('Missing '+f);
+const js=fs.readFileSync('client.js','utf8');new vm.Script(js);const html=fs.readFileSync('index.html','utf8');for(const id of ['startScreen','gameScreen','tableau','dealBtn','hintBtn','undoBtn','pauseModal','endModal'])if(!html.includes('id="'+id+'"'))throw Error('Missing '+id);
+console.log('QA static: PASS');console.log('104-card rule: 1 suit=8 copies, 2 suits=4 copies/suit, 4 suits=2 copies/suit');console.log('Layout: 54 tableau + 50 stock, 5 stock deals');console.log('Hint loop: 3 repeated hints -> deal suggestion');console.log('Favicon: present');

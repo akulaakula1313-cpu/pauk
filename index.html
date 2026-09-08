@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#071b16">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<title>ПАУК — SANI GROUP</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <section id="startScreen" class="screen menu-screen">
+    <div class="menu-card">
+      <img class="menu-logo" src="logo-sani-group.svg" alt="SANI GROUP">
+      <div class="eyebrow">SANI GROUP PRESENTS</div>
+      <h1>ПАУК</h1>
+      <p class="menu-sub">Премиальный пасьянс • 104 карты • 8 последовательностей</p>
+      <div class="mode-grid">
+        <button class="mode-btn featured" data-suits="1"><b>♠ 1 МАСТЬ</b><span>Легкий</span></button>
+        <button class="mode-btn" data-suits="2"><b>♠ ♥ 2 МАСТИ</b><span>Средний</span></button>
+        <button class="mode-btn" data-suits="4"><b>♠ ♥ ♦ ♣ 4 МАСТИ</b><span>Сложный</span></button>
+      </div>
+      <div class="menu-info"><b>Цель</b><br>Соберите 8 полных последовательностей K–A одной масти. Переносить стопку можно только если она открыта, убывает и все карты одной масти.</div>
+      <div class="brand-line">© 2026 • SANI GROUP</div>
+    </div>
+  </section>
+
+  <section id="gameScreen" class="game-screen hidden">
+    <header class="topbar">
+      <div class="brand"><img src="logo-sani-group.svg" alt=""><div><strong>ПАУК</strong><small>от SANI GROUP</small></div></div>
+      <div class="stats">
+        <div><small>Сложность</small><b id="difficulty">1 масть</b></div>
+        <div><small>Собрано</small><b id="completed">0/8</b></div>
+        <div><small>Ходы</small><b id="moves">0</b></div>
+        <div><small>Очки</small><b id="score">500</b></div>
+        <div><small>Время</small><b id="timer">00:00</b></div>
+      </div>
+      <div class="actions">
+        <button id="hintBtn" title="Подсказка">💡</button>
+        <button id="undoBtn" title="Отмена">↩</button>
+        <button id="pauseBtn" title="Пауза">Ⅱ</button>
+        <button id="menuBtn" title="Меню">☰</button>
+      </div>
+    </header>
+
+    <main id="boardWrap" class="board-wrap">
+      <div class="board">
+        <div id="foundations" class="foundations" aria-label="Собранные последовательности"></div>
+        <div id="tableau" class="tableau"></div>
+        <div id="hintArrow" class="hint-arrow hidden"><span></span></div>
+        <div class="board-mark"><span>♠</span><b>SANI GROUP</b></div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <button id="dealBtn" class="deal-btn"><span class="deck-mini"></span><span><b>НОВАЯ РАЗДАЧА</b><small>Осталось: <strong id="stockCount">5</strong></small></span></button>
+      <div class="footer-note">Соберите 8 стопок K–A одной масти</div>
+      <div class="footer-copy">© 2026 • SANI GROUP</div>
+    </footer>
+  </section>
+
+  <div id="pauseModal" class="modal hidden">
+    <div class="modal-card"><div class="modal-icon">Ⅱ</div><h2>Пауза</h2><p>Партия остановлена. Позиция сохранена.</p><button id="resumeBtn" class="gold-btn">Продолжить</button><button id="pauseMenuBtn" class="dark-btn">В меню</button></div>
+  </div>
+  <div id="endModal" class="modal hidden">
+    <div class="modal-card"><div id="endIcon" class="modal-icon">🏆</div><h2 id="endTitle">Победа!</h2><p id="endText">Все 8 последовательностей собраны.</p><div class="end-stats"><span>Ходы <b id="endMoves">0</b></span><span>Очки <b id="endScore">500</b></span><span>Время <b id="endTime">00:00</b></span></div><button id="endMenuBtn" class="gold-btn">В меню</button></div>
+  </div>
+  <div id="toast" class="toast hidden"></div>
+  <div id="dragLayer"></div>
+</div>
+<script src="client.js"></script>
+</body>
+</html>
