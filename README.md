@@ -1,22 +1,46 @@
-# SANI GROUP — ПАУК v8
+# SANI GROUP — ПАУК v12 MENU FINAL
 
-Production-ready single-folder build for Render/Node.js.
+Готовая production-ready версия пасьянса «Паук» в стиле главного меню SANI CHECKERS.
 
-## Render
-Build Command: `npm install`
-Start Command: `npm start`
+## Меню
+- Новая игра
+- Продолжить игру — показывается только для незавершённой сохранённой партии
+- Режимы игры: 1 / 2 / 4 масти
+- Правила игры
+- Статистика
+- О разработчиках
 
-## Local
-`node server.js` then open `http://localhost:3000`.
+Онлайн-игра, два игрока и магазин отсутствуют — для пасьянса они не нужны.
 
-## Important fixes in v8
-- No assets folder: all files are in the root.
-- Favicon included, so `/favicon.ico` 404 is eliminated by the SVG favicon link.
-- No giant logo watermark over the board.
-- Face cards use a clean isolated `.card-face`; no brown overlay layer is allowed.
-- Page load never opens Pause automatically unless a saved game exists. Saved games reopen paused intentionally.
-- 1/2/4 suit decks always contain exactly 104 cards.
-- Hint is visible with gold source, green target and arrow.
-- Repeating the exact same hint 3 times switches the hint to a new-deal recommendation instead of cycling forever.
-- Pointer drag uses pointerId and safe cancellation.
-- Undo history is not capped at 60.
+## Игровая логика
+- Ровно 104 карты для каждого режима.
+- 54 карты на столе + 50 в резерве.
+- 5 раздач по 10 карт.
+- Целиком переносится только строго убывающая последовательность одной масти.
+- Смешанная по мастям цепочка не переносится целиком.
+- Одиночная карта переносится на карту ровно на один ранг старше независимо от масти.
+- Раздача запрещена при пустом столбце.
+- Автосбор K–A одной масти.
+- Неограниченная история Undo; Undo стоит 1 очко.
+- Подсказка после трёх одинаковых повторов предлагает новую раздачу.
+- Пауза при скрытии вкладки и потере фокуса.
+- Завершённая партия имеет отдельный финальный экран и больше не предлагается как «Продолжить».
+
+## Запуск
+
+Локально:
+`node server.js`
+
+Открыть:
+`http://localhost:3000`
+
+Для Render:
+- Build Command: `npm install`
+- Start Command: `npm start`
+
+
+## Подсказка
+- Золотая подсветка источника и зелёная подсветка цели.
+- Анимированная стрелка с меткой «ХОД».
+- Подсказка автоматически исчезает через 4,2 секунды.
+- Повторный запрос подсказки сначала очищает предыдущую.
