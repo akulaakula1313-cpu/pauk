@@ -1,7 +1,0 @@
-services:
-  - type: web
-    name: sani-group-spider
-    runtime: node
-    buildCommand: npm install
-    startCommand: npm start
-    healthCheckPath: /
