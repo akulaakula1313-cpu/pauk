@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 150">
+<defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#fff0a8"/><stop offset=".45" stop-color="#d9a83b"/><stop offset="1" stop-color="#fff1aa"/></linearGradient></defs>
+<g fill="none" stroke="url(#g)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+<path d="M210 20l18 25 29-8-9 28 28 13-28 13 9 28-29-8-18 25-18-25-29 8 9-28-28-13 28-13-9-28 29 8z"/>
+<circle cx="210" cy="78" r="22"/><path d="M210 55v46M187 78h46M195 62l30 32M225 62l-30 32"/>
+<path d="M173 42c-25 1-45 12-59 31M247 42c25 1 45 12 59 31M173 114c-25-1-45-12-59-31M247 114c25-1 45-12 59-31"/>
+</g><text x="210" y="143" text-anchor="middle" fill="url(#g)" font-family="Georgia,serif" font-size="30" letter-spacing="5">SANI GROUP</text>
+</svg>
