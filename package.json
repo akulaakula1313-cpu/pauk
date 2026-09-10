@@ -1,1 +1,15 @@
-{"name":"sani-group-spider","version":"8.0.0","private":true,"type":"commonjs","scripts":{"start":"node server.js","test":"node qa-test.js"},"engines":{"node":">=18"}}
+{
+  "name": "sani-spider",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "mongodb": "^6.10.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
